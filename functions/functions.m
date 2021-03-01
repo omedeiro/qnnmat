@@ -1,4 +1,4 @@
-classdef omFunctions
+classdef baseFunctions
     %collection of functions used in processing lab data. 
     
     properties
