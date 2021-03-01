@@ -12,6 +12,8 @@ classdef tcCryoApp < tcCryoLayout
         filePathCooldownNAS
         subFolderPath
         %% Aquired Data
+        voltage
+        temp
         cooldownTemp
         cooldownTime
         cooldownDuration
@@ -95,18 +97,17 @@ classdef tcCryoApp < tcCryoLayout
 %                 disp('---')
                 channelP = 2;
                 channelN = 3;
-                voltage = 0.0;
+                Voltage = 0.0;
                 LJ_rgBIP10V = app.ljudObj.StringToConstant('LJ_rgBIP10V');
                 range = 1;
                 resolution = 8;
                 settling = 4;
                 binary = 0;
                 v=zeros(50,1);
-                [ljerror, voltage] = app.ljudObj.eAIN(app.lj, channelP, channelN, voltage, range, resolution, settling, binary);
-                V(i) = voltage;
+                [ljerror, Voltage] = app.ljudObj.eAIN(app.lj, channelP, channelN, Voltage, range, resolution, settling, binary);
+                V(i) = Voltage;
             end
         end
-        
         
         function V = getTestVoltage(app)
             V = [];
@@ -124,7 +125,7 @@ classdef tcCryoApp < tcCryoLayout
 %                 disp('---')
                 channelP = 2;
                 channelN = 3;
-                voltage = 0.0;
+                Voltage = 0.0;
                 LJ_rgBIP10V = app.ljudObj.StringToConstant('LJ_rgBIP10V');
                 range = 1;
                 resolution = 8;
@@ -132,12 +133,35 @@ classdef tcCryoApp < tcCryoLayout
                 binary = 0;
                 v=zeros(50,1);
                 for j = 1:50
-                    [ljerror, voltage] = app.ljudObj.eAIN(app.lj, channelP, channelN, voltage, range, resolution, settling, binary);
-                    v(j) = voltage;
+                    [ljerror, Voltage] = app.ljudObj.eAIN(app.lj, channelP, channelN, Voltage, range, resolution, settling, binary);
+                    v(j) = Voltage;
                 end
                 V = [V,mean(v), std(v)];
             end
 
+        end
+        
+        function positions = samplePositions(app)
+            samples = string(app.Panel.Children.findobj('Type','uieditfield').get('Value'));
+            positions = find(flipud(~cellfun(@isempty,samples)));
+            
+            %This bit of code accounts for a MISS PIN on the electrical
+            %harness of positions 4 and 6.
+            p = positions;
+            if any(positions==6)
+                p(positions==6) = 4;
+            end
+            if any(positions==4)
+                p(positions==4) = 6;
+            end
+            positions = p;
+        end
+            
+        function measureSamples(app, positions)
+            app.voltage = [app.voltage;app.getVoltage(positions)];
+            currentTemp = app.cryoconObj.read_temp('B');
+            app.TemperatureEditField.Value = currentTemp;
+            app.temp = [app.temp;currentTemp]; 
         end
         
         function startTestConnections(app)
@@ -164,21 +188,34 @@ classdef tcCryoApp < tcCryoLayout
             while app.stop == 0
                 app.StatusEditField.Value = 'Starting Cooldown Log';
                 app.TabGroup2.SelectedTab = app.Tab2_2;
-                temp = app.cryoconObj.read_temp('B');
+                Temp = app.cryoconObj.read_temp('B');
                 startTime = datetime('now');
 
                 app.cooldownTemp = [];
                 app.cooldownTime = [];
-                app.cooldownTemp = [app.cooldownTemp, temp];
+                app.cooldownTemp = [app.cooldownTemp, Temp];
                 app.cooldownTime = [app.cooldownTime, datetime('now')];
 
+                positions = app.samplePositions();
                 pause(0.5)
                 set_distance = 45;
+                
+                if min(app.cooldownTemp) < 10
+                    app.MinTempEditField.Value = min(app.cooldownTemp);
+                    app.globalMinimumTemp = min(app.cooldownTemp);
+                end
+                
                 while min(app.cooldownTemp) > 10 
                     while (length(app.cooldownTemp) - find(app.cooldownTemp == min(app.cooldownTemp))) < set_distance && app.stop == 0
-                        temp = app.cryoconObj.read_temp('B');
-                        app.TemperatureEditField.Value = temp;
-                        app.cooldownTemp = [app.cooldownTemp, temp];
+                        app.measureSamples(positions)
+                        
+                        for i = 1:length(positions)
+                            app.plotTcCurves(positions(i),app.temp,app.voltage(:,i)./app.measuredCurrent)
+                        end
+                        
+                        Temp = app.cryoconObj.read_temp('B');
+                        app.TemperatureEditField.Value = Temp;
+                        app.cooldownTemp = [app.cooldownTemp, Temp];
                         app.cooldownTime = [app.cooldownTime, datetime('now')];
                         app.UIAxes8.YLim = [0 300];
                         datetick(app.UIAxes8,'x')       
@@ -220,11 +257,11 @@ classdef tcCryoApp < tcCryoLayout
                 app.StatusEditField.Value = 'Starting Heater';
                 app.TabGroup2.SelectedTab = app.Tab_2;
 
-                samples = string(app.Panel.Children.findobj('Type','uieditfield').get('Value'));
-                positions = find(flipud(~cellfun(@isempty,samples)));
+%                 samples = string(app.Panel.Children.findobj('Type','uieditfield').get('Value'));
+                positions = app.samplePositions();
 
-                temp = [];
-                voltage = [];
+%                 temp = [];
+%                 voltage = [];
                 
                 highSetpoint = 25;
                 lowSetpoint = app.globalMinimumTemp;   
@@ -243,14 +280,15 @@ classdef tcCryoApp < tcCryoLayout
                 
                 while currentTemp < highSetpoint && app.stop == 0
                     app.StatusEditField.Value = 'Heating';
-                    voltage = [voltage;app.getVoltage(positions)];
+                    app.measureSamples(positions)
+%                     voltage = [voltage;app.getVoltage(positions)];
                     currentTemp = app.cryoconObj.read_temp('B');
-                    app.TemperatureEditField.Value = currentTemp;
-                    temp = [temp;currentTemp]; 
+%                     app.TemperatureEditField.Value = currentTemp;
+%                     temp = [temp;currentTemp]; 
 %                     app.MinTempEditField.Value = min(temp); %removed line
 %                     to keep minimum temp set from cooldown. 
                     for i = 1:length(positions)
-                        app.plotTcCurves(positions(i),temp,voltage(:,i)./app.measuredCurrent)
+                        app.plotTcCurves(positions(i),app.temp,app.voltage(:,i)./app.measuredCurrent)
                     end
                 end
                 
@@ -262,34 +300,35 @@ classdef tcCryoApp < tcCryoLayout
                 
                 while currentTemp > lowSetpoint && app.stop == 0
                     app.StatusEditField.Value = 'Set lower setpoint';
-                    voltage = [voltage;app.getVoltage(positions)];
+%                     voltage = [voltage;app.getVoltage(positions)];
                     currentTemp = app.cryoconObj.read_temp('B');
-                    app.TemperatureEditField.Value = currentTemp;
-                    temp = [temp;currentTemp]; 
+%                     app.TemperatureEditField.Value = currentTemp;
+%                     temp = [temp;currentTemp]; 
+                    app.measureSamples(positions)
 %                     app.MinTempEditField.Value = min(temp);
                     for i = 1:length(positions)
-                        app.plotTcCurves(positions(i),temp,voltage(:,i)./app.measuredCurrent)
+                        app.plotTcCurves(positions(i),app.temp,app.voltage(:,i)./app.measuredCurrent)
                     end
 
-                    if max(temp) > 10 && currentTemp < app.globalMinimumTemp*1.1
+                    if max(app.temp) > 10 && currentTemp < app.globalMinimumTemp*1.1
 %                 while (length(app.cooldownTemp) - find(app.cooldownTemp == min(app.cooldownTemp))) < set_distance && app.stop == 0
                         %lowest temperature met
                         app.cryoconObj.stop_heater();
-                        app.measuredResistance = voltage./app.measuredCurrent;
-                        app.measuredTemp = temp;
+                        app.measuredResistance = app.voltage./app.measuredCurrent;
+                        app.measuredTemp = app.temp;
                         fieldsTc = [app.Tc0, app.Tc1, app.Tc2, app.Tc5, app.Tc4, app.Tc3];
                         sampleIDs = [app.Position0EditField,app.Position1EditField,app.Position2EditField,...
                             app.Position5EditField,app.Position4EditField,app.Position3EditField];
                         for i = 1:length(positions)
                             try
-                                fieldsTc(positions(i)).Value = app.calculateTc(temp,voltage(:,i)/app.measuredCurrent);
+                                fieldsTc(positions(i)).Value = app.calculateTc(app.temp,app.voltage(:,i)/app.measuredCurrent);
                             catch 
                                 warning('could not calculate Tc. Assigning 0');
                                 fieldsTc(positions(i)).Value = 0;
                             end
 %                             app.saveTcResults(sampleIDs(positions(i)).Value,app.calculateTc(temp,voltage(:,i)));
                             app.plotTcCalc(i,fieldsTc(positions(i)).Value)
-                            app.saveRTResults(sampleIDs(positions(i)).Value,temp,voltage(:,i)./app.measuredCurrent,fieldsTc(positions(i)).Value);
+                            app.saveRTResults(sampleIDs(positions(i)).Value,app.temp,app.voltage(:,i)./app.measuredCurrent,fieldsTc(positions(i)).Value, app.measuredCurrent);
                         end
                         break
                     end
@@ -301,7 +340,7 @@ classdef tcCryoApp < tcCryoLayout
         end
         
         function plotTcCurves(app, plotIndex, temp, resistance)
-            plots = [app.UIAxes4_1,app.UIAxes4_2,app.UIAxes4_3,app.UIAxes4_4,app.UIAxes4_5,app.UIAxes4_6];
+            plots = [app.UIAxes4_1,app.UIAxes4_2,app.UIAxes4_3,app.UIAxes4_6,app.UIAxes4_5,app.UIAxes4_4];
             axisHandle = plots(plotIndex);
 
             axisHandle.cla;
@@ -327,17 +366,17 @@ classdef tcCryoApp < tcCryoLayout
             mat2sheets(app.sheetIdTc,sheetNumber, location, {name value});
         end
         
-        function saveRTResults(app, name, temp, resistance, Tc)
+        function saveRTResults(app, name, temp, resistance, Tc, current)
             % Save Locally
             filename = strcat(app.filePath,'\',name,'--',datestr(datetime('now'),'mm-dd-yyyy--HH-MM-SS'),'.mat');
-            save(filename, 'temp', 'resistance', 'Tc');
+            save(filename, 'temp', 'resistance', 'Tc', 'current');
             
             %Save to network
             try
                 filepath_nas = strcat(app.filePathNAS,'\',name,'\','tc_cryo');
                 mkdir(filepath_nas);
                 filename_nas = strcat(filepath_nas,'\',name,'--',datestr(datetime('now'),'mm-dd-yyyy--HH-MM-SS'),'.mat');
-                save(filename_nas, 'temp', 'resistance', 'Tc');
+                save(filename_nas, 'temp', 'resistance', 'Tc', 'current');
             catch
                 warning('Failed to save RT data to network')
             end
@@ -474,7 +513,21 @@ classdef tcCryoApp < tcCryoLayout
                 app.RunButton.Enable = 'on';
                 app.StopButton.Enable = 'off';
                 app.TestConnectionsButton.Enable = 'on';
-
+                app.voltage = [];
+                app.temp = [];
+                app.UIAxes4_1.cla
+                app.UIAxes4_2.cla
+                app.UIAxes4_3.cla
+                app.UIAxes4_4.cla
+                app.UIAxes4_5.cla
+                app.UIAxes4_6.cla
+%                 cooldownTemp
+%                 cooldownTime
+%                 cooldownDuration
+%                 measuredResistance
+%                 measuredTemp
+%                 measuredCurrent
+%                 globalMinimumTemp
             end
         end
 
