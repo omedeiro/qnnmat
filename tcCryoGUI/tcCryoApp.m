@@ -186,6 +186,7 @@ classdef tcCryoApp < tcCryoLayout
         
         function startCoolDownLog(app)
             while app.stop == 0
+                app.cryoconObj.stop_heater();
                 app.StatusEditField.Value = 'Starting Cooldown Log';
                 app.TabGroup2.SelectedTab = app.Tab2_2;
                 Temp = app.cryoconObj.read_temp('B');
@@ -206,7 +207,7 @@ classdef tcCryoApp < tcCryoLayout
                 end
                 
                 while min(app.cooldownTemp) > 10 
-                    while (length(app.cooldownTemp) - find(app.cooldownTemp == min(app.cooldownTemp))) < set_distance && app.stop == 0
+                    while (length(app.cooldownTemp) - find(app.cooldownTemp == min(app.cooldownTemp), 1)) < set_distance && app.stop == 0
                         app.measureSamples(positions)
                         
                         for i = 1:length(positions)
@@ -227,6 +228,10 @@ classdef tcCryoApp < tcCryoLayout
                             app.DistanceEditField.Value = length(app.cooldownTemp) - find(app.cooldownTemp == min(app.cooldownTemp));
                         catch
                             disp(length(app.cooldownTemp) - find(app.cooldownTemp == min(app.cooldownTemp)))
+                            cond = find(app.cooldownTemp == min(app.cooldownTemp));
+                            if length(cond) > 1
+                                app.DistanceEditField.Value = length(app.cooldownTemp)-cond(1);
+                            end 
                         end
                         drawnow;
                         pause(1)    
@@ -267,7 +272,7 @@ classdef tcCryoApp < tcCryoLayout
                 lowSetpoint = app.globalMinimumTemp;   
                 
                 app.cryoconObj.setup_heater(50, '50W', 'B');
-                app.cryoconObj.set_control_type_rampp(10)
+                app.cryoconObj.set_control_type_rampp(7)
                 app.cryoconObj.set_pid(0.5,5,0);
                 app.cryoconObj.stop_heater();
                 app.cryoconObj.set_setpoint(lowSetpoint);
