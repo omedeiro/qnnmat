@@ -526,6 +526,7 @@ classdef tcCryoApp < tcCryoLayout
                 app.UIAxes4_4.cla
                 app.UIAxes4_5.cla
                 app.UIAxes4_6.cla
+                app.cryoconObj.stop_heater();
 %                 cooldownTemp
 %                 cooldownTime
 %                 cooldownDuration
