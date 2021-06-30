@@ -51,11 +51,11 @@ classdef tcCryoApp < tcCryoLayout
         end
             
         function setDirectory(app)
-            addpath C:\Users\qnn-Tc-cryo\Documents\MATLAB\MATLAB_LJUD\LJUD_Functions
-            addpath C:\Users\qnn-Tc-cryo\Documents\MATLAB\tcCryoGUI
-            app.filePath = 'C:\Users\qnn-Tc-cryo\Documents\tcCryoSampleData';
+            addpath Q:\qnnmat\tcCryoGUI\MATLAB_LJUD\LJUD_Functions
+            addpath Q:\qnnmat\tcCryoGUI
+            app.filePath = 'C:\Users\qnn-nuc-01\Documents\tcCryoSampleData';
             app.filePathNAS = 'S:\SC\Measurements';
-            app.filePathCooldown = 'C:\Users\qnn-Tc-cryo\Documents\tcCryoCooldownData';
+            app.filePathCooldown = 'C:\Users\qnn-nuc-01\Documents\tcCryoCooldownData';
             app.filePathCooldownNAS = 'S:\SC\InstrumentLogging\Cryogenics\TcCryo';
         end
         
@@ -348,7 +348,7 @@ classdef tcCryoApp < tcCryoLayout
             plots = [app.UIAxes4_1,app.UIAxes4_2,app.UIAxes4_3,app.UIAxes4_6,app.UIAxes4_5,app.UIAxes4_4];
             axisHandle = plots(plotIndex);
 
-            axisHandle.cla;
+            cla(axisHandle);
             plot(axisHandle,temp,resistance);
             hold(axisHandle, 'on')
             plot(axisHandle,temp(length(temp)),resistance(length(resistance)),'or');
@@ -520,12 +520,21 @@ classdef tcCryoApp < tcCryoLayout
                 app.TestConnectionsButton.Enable = 'on';
                 app.voltage = [];
                 app.temp = [];
-                app.UIAxes4_1.cla
-                app.UIAxes4_2.cla
-                app.UIAxes4_3.cla
-                app.UIAxes4_4.cla
-                app.UIAxes4_5.cla
-                app.UIAxes4_6.cla
+                
+%                 app.UIAxes4_1.cla
+%                 app.UIAxes4_2.cla
+%                 app.UIAxes4_3.cla
+%                 app.UIAxes4_4.cla
+%                 app.UIAxes4_5.cla
+%                 app.UIAxes4_6.cla
+                
+                cla(app.UIAxes4_1)
+                cla(app.UIAxes4_2)
+                cla(app.UIAxes4_3)
+                cla(app.UIAxes4_4)
+                cla(app.UIAxes4_5)
+                cla(app.UIAxes4_6)
+                
                 app.cryoconObj.stop_heater();
 %                 cooldownTemp
 %                 cooldownTime
