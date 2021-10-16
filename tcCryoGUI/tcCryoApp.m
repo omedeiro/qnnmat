@@ -41,9 +41,6 @@ classdef tcCryoApp < tcCryoLayout
             [ljerror, ljhandle] = app.ljudObj.OpenLabJackS('LJ_dtU6', 'LJ_ctUSB', '0', true, 0);
             app.lj = ljhandle;
             app.stop = 0;
-            app.apiClientID = '939372684163-6l9568gl5mbst7j4hl3ms5774v4p0lur.apps.googleusercontent.com';
-            app.apiKey = 'mKzmbgpNfxP_T7tU2pzTMe5R';
-            app.sheetIdTc = '1U96uvHKozNimIb4_gkXFvJUp04TPJNlDoPeP5eBow0g';
             
             app.globalMinimumTemp = 0;
         end
